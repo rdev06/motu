@@ -1,28 +1,30 @@
 import 'reflect-metadata';
-import Container from 'typedi';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { App, HttpResponse } from 'uWebSockets.js';
 import { Modules } from './decorators.js';
 import { Ctx, outputSchema } from './common.js';
+import { Container } from 'typedi';
 
 interface IMotuOption {
-  routes: Record<string, Record<string, Function>>;
+  routes: Record<string, Record<string, new (...args: any[]) => any>>;
   name?: string;
   port?: number;
+  whiteListHeaderKeys?: string[];
   CORS_HEADERS?: Record<string, string>;
 }
 
 interface IBody {
-    e: string,
-    m: string,
-    args: any[]
-  }
+  e: string;
+  m: string;
+  args: any[];
+}
 
 const _CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Credentials': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH',
-  'Access-Control-Allow-Headers': '*'
+  'Access-Control-Allow-Headers': '*',
+  'Content-Type': 'application/json'
 };
 
 function set(res: HttpResponse, _headers: Record<string, string>) {
@@ -38,8 +40,7 @@ export function readJson(res: HttpResponse): Promise<any> {
       data += Buffer.from(chunk);
       if (isLast) {
         try {
-          res.writeHeader('Content-Type', 'application/json');
-          if(!data) throw 'Body is required';
+          if (!data) throw 'Body is required';
           return resolve(JSON.parse(data));
         } catch (error) {
           res.close();
@@ -55,11 +56,12 @@ export default function motu(option: IMotuOption) {
   const name = option.name || 'default';
   const PORT = Number(process.env.PORT) || option.port || 3000;
   const CORS_HEADERS = option.CORS_HEADERS || _CORS_HEADERS;
+  const headerKeys = ['authorization', 'x-api-key'].concat(option.whiteListHeaderKeys || []);
   const schemas = validationMetadatasToSchemas();
   const server = App();
   server.options('/*', (res) => {
     set(res, CORS_HEADERS);
-    res.end('Departed');
+    res.end(JSON.stringify({ message: 'Departed' }));
   });
 
   server.patch('/*', async (res, req) => {
@@ -93,37 +95,52 @@ export default function motu(option: IMotuOption) {
 
     server.post(K, async (res, req) => {
       try {
+        const ctx = {
+          headers: {},
+          _headers: {},
+          status: 200,
+          set: function (key: string, value: string) {
+            this._headers[key] = value;
+          }
+        };
+        for (const k of headerKeys) {
+          ctx.headers[k] = req.getHeader(k);
+        }
         const body: IBody = await readJson(res);
         const Controller = Module[body.e];
         if (!Controller) {
           throw { status: 404, message: body.e + ' controller not found' };
         }
-
-        const ctx = {
-            headers: {get: req.getHeader},
-            _headers: CORS_HEADERS,
-            status: 200,
-            set: function(headers) {
-              this._headers = headers;
-            }
-          };
-          Container.set(Ctx, ctx);
-          const Entity = Container.get(Controller);
-          const handler = Entity?.[body.m];
-          if (!handler) {
-            throw { status: 404, message: `Can not found handler under ${body.e}/${body.m}` };
-          }
-          let toSend = await handler.apply(Entity, body.args || []);
-          set(res, { ...CORS_HEADERS, ...ctx._headers })
-          const status = ctx.status?.toString() || '200';
-          if (typeof res === 'string') {
-            toSend = { message: res };
-          }
+        Container.set(Ctx, ctx);
+        const Entity = Container.get(Controller);
+        const handler = Entity?.[body.m];
+        if (!handler) {
+          throw { status: 404, message: `Can not found handler under ${body.e}/${body.m}` };
+        }
+        let toSend = await handler.apply(Entity, body.args || []);
+        const status = ctx.status?.toString() || '200';
+        if (typeof res === 'string') {
+          toSend = { message: res };
+        }
+        res.cork(() => {
+          set(res, { ...CORS_HEADERS, ...ctx._headers });
           res.writeStatus(status).end(JSON.stringify(toSend));
+        });
       } catch (err) {
-        set(res, CORS_HEADERS);
-        const error = { message: err.message || 'Unknown Error', err };
-        res.writeStatus(err.status?.toString() || '400').end(JSON.stringify(error));
+        if (err.hasOwnProperty('stack') || process.env.NODE_ENV != 'prod') {
+          if (!err.meta) {
+            err.meta = {};
+          }
+          err.meta.stack = err.stack;
+        }
+        const error: { message: string; err?: any } = { message: err.message || 'Unknown Error' };
+        if (process.env.NODE_ENV != 'prod') {
+          error.err = err;
+        }
+        res.cork(() => {
+          set(res, CORS_HEADERS);
+          res.writeStatus(err.status?.toString() || '400').end(JSON.stringify(error));
+        });
       }
     });
   }

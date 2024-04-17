@@ -1,6 +1,6 @@
 import { CreateIndexesOptions, Document, IndexSpecification, ObjectId } from 'mongodb';
 import { ValidateBy, buildMessage, ValidationOptions } from 'class-validator';
-import Container from 'typedi';
+import { Container } from 'typedi';
 import { Transform } from 'class-transformer';
 
 export class HttpException extends Error {
@@ -20,7 +20,7 @@ export class NotFoundException extends HttpException {
 }
 
 export class Ctx {
-  headers: Request['headers'];
+  headers: Record<string, string>;
   _headers: Record<string, string[]>;
   status: number;
   set: Function;
@@ -31,6 +31,7 @@ export type useGuardFn = (ctx: Ctx) => boolean | Promise<boolean>;
 
 async function handleGuard(fns: useGuardFn[], original: Function, self: object, args: any[]){
   const ctx = Container.get(Ctx);
+  // Needs to be done in series and not parallel
   for (const fn of fns) {
     const isValid = await fn(ctx);
     if(!isValid){
@@ -65,10 +66,11 @@ export function UseGuard(fns: useGuardFn | useGuardFn[]) {
 
 export type IBsonType = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'int' | 'long' | 'double' | 'decimal' | string;
 
-export type IToGenerate = { name: string; schema: { bsonType: IBsonType; [k: string]: any } };
+export type IToGenerate = { name: string; version: string, schema: { bsonType: IBsonType; [k: string]: any } };
 
 export const GeneralResponse: IToGenerate = {
   name: 'GeneralResponse',
+  version: '1.0.0',
   schema: {
     title: 'This is general Response Schema',
     bsonType: 'object',
@@ -86,6 +88,7 @@ export const GeneralResponse: IToGenerate = {
 
 export type IEntity = {
   name: string;
+  version: string;
   default?: Record<string, any>;
   indexes?: { keys: IndexSpecification; option?: CreateIndexesOptions }[];
   schema: Document;

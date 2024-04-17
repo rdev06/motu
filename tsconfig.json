@@ -1,33 +1,26 @@
 {
-    "compilerOptions": {
-      "lib": ["ESNext"],
-      "module": "ESNext",
-      "moduleDetection": "force",
-      "declaration": true,
-      "removeComments": true,
-      "emitDecoratorMetadata": true,
-      "experimentalDecorators": true,
-      "allowSyntheticDefaultImports": true,
-      "target": "ESNext",
-      "moduleResolution": "Bundler",
-      "sourceMap": true,
-      "outDir": "./dist",
-      "baseUrl": "./",
-      "incremental": true,
-      "skipLibCheck": true,
-      "strictNullChecks": false,
-      "noImplicitAny": false,
-      "strictBindCallApply": false,
-      "forceConsistentCasingInFileNames": false,
-      "noFallthroughCasesInSwitch": false,
-      "esModuleInterop": true,
-    },
-    "include": ["src"],
-    "exclude": ["node_modules"],
-    "ts-node": {
-      "esm": true,
-      "transpileOnly": true,
-      "preferTsExts": true,
-    }
-  }
-  
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "esModuleInterop": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
