@@ -2,14 +2,22 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import OmitBy from 'lodash.omitby';
 import isNil from 'lodash.isnil';
+import { Container } from 'typedi';
+import { IEntity } from './common';
+import MongoLoader from './MongoLoader';
+import { INested, calculateNestedProjection, processNestedResponse } from './utils';
 
 export interface IOption {
   description?: string;
-  type?: any;
+  type?: IEntity;
   isArray?: boolean;
 }
 
-export const Modules: Record<string, Record<'query' | 'mutation' | 'subscription', Record<string, IOption & { input: any[] }>>> = {};
+export const Modules: Record<
+  string,
+  Record<'query' | 'mutation' | 'subscription', Record<string, Pick<IOption, 'description' | 'isArray'> & { input: any[]; type: string }>>
+> = {};
+
 
 function serveType(q: 'query' | 'mutation', option: IOption) {
   return function (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<any>) {
@@ -37,7 +45,14 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
           args[i] = OmitBy(init, isNil);
         }
       }
-      return method.apply(this, args);
+      const nestedProject: INested = calculateNestedProjection(this.ctx.project, option.type.name);
+      this.ctx.project = nestedProject.project;
+      let toReturn = await method.apply(this, args);
+      if(nestedProject.nested){
+        const loader = Container.get(MongoLoader);
+        await processNestedResponse(toReturn, nestedProject.nested, option.isArray, loader);
+      }
+      return toReturn;
     };
   };
 }

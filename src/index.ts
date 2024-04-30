@@ -1,9 +1,9 @@
 import 'reflect-metadata';
+import { Container } from 'typedi';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { App, HttpResponse } from 'uWebSockets.js';
 import { Modules } from './decorators.js';
 import { Ctx, outputSchema } from './common.js';
-import { Container } from 'typedi';
 
 interface IMotuOption {
   routes: Record<string, Record<string, new (...args: any[]) => any>>;
@@ -16,7 +16,9 @@ interface IMotuOption {
 interface IBody {
   e: string;
   m: string;
+  q: 'query'|'mutation';
   args: any[];
+  project: Ctx['project'];
 }
 
 const _CORS_HEADERS = {
@@ -27,9 +29,13 @@ const _CORS_HEADERS = {
   'Content-Type': 'application/json'
 };
 
-function set(res: HttpResponse, _headers: Record<string, string>) {
+function set(res: HttpResponse, _headers: Ctx['_headers']) {
   for (const k in _headers) {
-    res.writeHeader(k, _headers[k]);
+    let value: string | string [] = _headers[k];
+    if(Array.isArray(value)){
+      value = value.join(';');
+    }
+    res.writeHeader(k, value);
   }
 }
 
@@ -59,6 +65,7 @@ export default function motu(option: IMotuOption) {
   const headerKeys = ['authorization', 'x-api-key'].concat(option.whiteListHeaderKeys || []);
   const schemas = validationMetadatasToSchemas();
   const server = App();
+
   server.options('/*', (res) => {
     set(res, CORS_HEADERS);
     res.end(JSON.stringify({ message: 'Departed' }));
@@ -88,21 +95,21 @@ export default function motu(option: IMotuOption) {
 
   for (const K in option.routes) {
     const Module = option.routes[K];
+
     server.get(K, (res) => {
       set(res, CORS_HEADERS);
-      res.end(JSON.stringify(Modules));
+      const ThisModuleKeys = Object.keys(Module);
+      // Now bring the values of this Module keys from Modules and send it;
+      const toSend = ThisModuleKeys.reduce((pre, k)=>{
+        pre[k] = Modules[Module[k].name]
+        return pre;
+      }, {})
+      res.end(JSON.stringify(toSend));
     });
 
     server.post(K, async (res, req) => {
       try {
-        const ctx = {
-          headers: {},
-          _headers: {},
-          status: 200,
-          set: function (key: string, value: string) {
-            this._headers[key] = value;
-          }
-        };
+        const ctx = {headers: {}, project: {}};
         for (const k of headerKeys) {
           ctx.headers[k] = req.getHeader(k);
         }
@@ -111,19 +118,21 @@ export default function motu(option: IMotuOption) {
         if (!Controller) {
           throw { status: 404, message: body.e + ' controller not found' };
         }
-        Container.set(Ctx, ctx);
+        ctx.project = body.project || {};
+
         const Entity = Container.get(Controller);
         const handler = Entity?.[body.m];
         if (!handler) {
           throw { status: 404, message: `Can not found handler under ${body.e}/${body.m}` };
         }
+        Entity.ctx = {...Entity.ctx, ...ctx};
         let toSend = await handler.apply(Entity, body.args || []);
-        const status = ctx.status?.toString() || '200';
+        const status = Entity.ctx.status?.toString() || '200';
         if (typeof res === 'string') {
           toSend = { message: res };
         }
         res.cork(() => {
-          set(res, { ...CORS_HEADERS, ...ctx._headers });
+          set(res, { ...CORS_HEADERS, ...Entity.ctx._headers });
           res.writeStatus(status).end(JSON.stringify(toSend));
         });
       } catch (err) {

@@ -1,4 +1,4 @@
-import { IToGenerate, GeneralResponse } from './common';
+import { IEntity, GeneralResponse } from './common';
 import fs from 'fs';
 
 const TypeBsonMap = {
@@ -56,9 +56,9 @@ export function Generate(schema: any, idx = 0) {
   return '{\n' + Gen + ind + '}';
 }
 
-export function SchemaTypeGenerator(toGenerate: IToGenerate[], fileLocation?: string): string | void {
-  const schemas: IToGenerate[] = [GeneralResponse, ...toGenerate];
-  const Types = schemas.map((e: IToGenerate) => `export interface I${e.name} ${Generate(e.schema)}`);
+export function SchemaTypeGenerator(toGenerate: IEntity[], fileLocation?: string): string | void {
+  const schemas: IEntity[] = [GeneralResponse, ...toGenerate];
+  const Types = schemas.map((e: IEntity) => `export interface I${e.name} ${Generate(e.schema)}`);
   const toWrite = `//***** This is auto generated types ***//
 import type { ObjectId } from 'mongodb';
 
