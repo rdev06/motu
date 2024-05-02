@@ -143,8 +143,10 @@ export default function motu(option: IMotuOption) {
 
   for (const K in option.apis) {
     const Module = option.apis[K];
+    let path = option.apiPathPrefix + K;
+    if(path.endsWith('/')) path = path.slice(0, -1);
 
-    server.get(option.apiPathPrefix + K, (res) => {
+    server.get(path, (res) => {
       set(res, CORS_HEADERS);
       const ThisModuleKeys = Object.keys(Module);
       // Now bring the values of this Module keys from Modules and send it;
@@ -155,7 +157,7 @@ export default function motu(option: IMotuOption) {
       res.end(JSON.stringify(toSend));
     });
 
-    server.post(option.apiPathPrefix + K, async (res, req) => {
+    server.post(path, async (res, req) => {
       try {
         const ctx = { headers: {}, project: {} };
         for (const k of headerKeys) {
