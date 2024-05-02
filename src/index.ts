@@ -3,10 +3,12 @@ import { Container } from 'typedi';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { App, HttpResponse } from 'uWebSockets.js';
 import { Modules } from './decorators.js';
-import { Ctx, outputSchema } from './common.js';
+import { Ctx, isObjectEmpty, outputSchema } from './common.js';
 
 interface IMotuOption {
-  routes: Record<string, Record<string, new (...args: any[]) => any>>;
+  apis: Record<string, Record<string, new (...args: any[]) => any>>;
+  apiPathPrefix?: string;
+  redirects?: Record<string, (ctx: Ctx, useParam: (idx: number) => string) => any>;
   name?: string;
   port?: number;
   whiteListHeaderKeys?: string[];
@@ -16,7 +18,7 @@ interface IMotuOption {
 interface IBody {
   e: string;
   m: string;
-  q: 'query'|'mutation';
+  q: 'query' | 'mutation';
   args: any[];
   project: Ctx['project'];
 }
@@ -31,12 +33,29 @@ const _CORS_HEADERS = {
 
 function set(res: HttpResponse, _headers: Ctx['_headers']) {
   for (const k in _headers) {
-    let value: string | string [] = _headers[k];
-    if(Array.isArray(value)){
+    let value: string | string[] = _headers[k];
+    if (Array.isArray(value)) {
       value = value.join(';');
     }
     res.writeHeader(k, value);
   }
+}
+
+function handelError(err: any, CORS_HEADERS: Ctx['_headers'], res: HttpResponse) {
+  if (err.hasOwnProperty('stack') || process.env.NODE_ENV != 'prod') {
+    if (!err.meta) {
+      err.meta = {};
+    }
+    err.meta.stack = err.stack;
+  }
+  const error: { message: string; err?: any } = { message: err.message || 'Unknown Error' };
+  if (process.env.NODE_ENV != 'prod') {
+    error.err = err;
+  }
+  res.cork(() => {
+    set(res, CORS_HEADERS);
+    res.writeStatus(err.status?.toString() || '400').end(JSON.stringify(error));
+  });
 }
 
 export function readJson(res: HttpResponse): Promise<any> {
@@ -66,6 +85,9 @@ export default function motu(option: IMotuOption) {
   const schemas = validationMetadatasToSchemas();
   const server = App();
 
+  if(!option.apiPathPrefix) option.apiPathPrefix = '/api';
+  if(option.apiPathPrefix === '/') throw `You can not set 'apiPathPrefix' as '/' as this is reserved for internal usage`;
+
   server.options('/*', (res) => {
     set(res, CORS_HEADERS);
     res.end(JSON.stringify({ message: 'Departed' }));
@@ -93,23 +115,49 @@ export default function motu(option: IMotuOption) {
     }
   });
 
-  for (const K in option.routes) {
-    const Module = option.routes[K];
+  if (!isObjectEmpty(option.redirects)) {
+    for (const k in option.redirects) {
+      server.get(k, async (res, req) => {
+        set(res, CORS_HEADERS);
+        try {
+          const ctx = Container.get(Ctx);
+          for (const k of headerKeys) {
+            ctx.headers[k] = req.getHeader(k);
+          }
+          let toSend = await option.redirects[k](ctx, req.getParameter);
+          if (typeof toSend === 'string') {
+            toSend = { message: toSend };
+          }else if(typeof toSend === 'object'){
+            toSend = JSON.stringify(toSend)
+          }
+          res.cork(() => {
+            set(res, { ...CORS_HEADERS, ...ctx._headers });
+            res.writeStatus(ctx.status.toString() || '200').end(toSend);
+          });
+        } catch (err) {
+          handelError(err, CORS_HEADERS, res);
+        }
+      });
+    }
+  }
 
-    server.get(K, (res) => {
+  for (const K in option.apis) {
+    const Module = option.apis[K];
+
+    server.get(option.apiPathPrefix + K, (res) => {
       set(res, CORS_HEADERS);
       const ThisModuleKeys = Object.keys(Module);
       // Now bring the values of this Module keys from Modules and send it;
-      const toSend = ThisModuleKeys.reduce((pre, k)=>{
-        pre[k] = Modules[Module[k].name]
+      const toSend = ThisModuleKeys.reduce((pre, k) => {
+        pre[k] = Modules[Module[k].name];
         return pre;
-      }, {})
+      }, {});
       res.end(JSON.stringify(toSend));
     });
 
-    server.post(K, async (res, req) => {
+    server.post(option.apiPathPrefix + K, async (res, req) => {
       try {
-        const ctx = {headers: {}, project: {}};
+        const ctx = { headers: {}, project: {} };
         for (const k of headerKeys) {
           ctx.headers[k] = req.getHeader(k);
         }
@@ -125,7 +173,7 @@ export default function motu(option: IMotuOption) {
         if (!handler) {
           throw { status: 404, message: `Can not found handler under ${body.e}/${body.m}` };
         }
-        Entity.ctx = {...Entity.ctx, ...ctx};
+        Entity.ctx = { ...Entity.ctx, ...ctx };
         let toSend = await handler.apply(Entity, body.args || []);
         const status = Entity.ctx.status?.toString() || '200';
         if (typeof res === 'string') {
@@ -136,20 +184,7 @@ export default function motu(option: IMotuOption) {
           res.writeStatus(status).end(JSON.stringify(toSend));
         });
       } catch (err) {
-        if (err.hasOwnProperty('stack') || process.env.NODE_ENV != 'prod') {
-          if (!err.meta) {
-            err.meta = {};
-          }
-          err.meta.stack = err.stack;
-        }
-        const error: { message: string; err?: any } = { message: err.message || 'Unknown Error' };
-        if (process.env.NODE_ENV != 'prod') {
-          error.err = err;
-        }
-        res.cork(() => {
-          set(res, CORS_HEADERS);
-          res.writeStatus(err.status?.toString() || '400').end(JSON.stringify(error));
-        });
+        handelError(err, CORS_HEADERS, res);
       }
     });
   }
