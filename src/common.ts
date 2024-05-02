@@ -1,30 +1,24 @@
 import { CreateIndexesOptions, IndexSpecification, ObjectId, Long } from 'mongodb';
-import { ValidateBy, buildMessage, ValidationOptions } from 'class-validator';
+import { ValidateBy, buildMessage, ValidationOptions, validate as cvValidate, ValidationArguments, ValidateNested } from 'class-validator';
 import { Service } from 'typedi';
-import { Transform } from 'class-transformer';
-import Omit from 'lodash.omit';
+import { Transform, Type, plainToInstance } from 'class-transformer';
 import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters';
+import { JSONSchema } from 'class-validator-jsonschema';
 
 
-const AdditionalInputTypes = {
+export const AdditionalInputTypes:ISchemaConverters  = {
   ToMongoId: {
-    name: 'ToMongoId',
     description: 'A mongo id',
     type: 'string'
   },
   ToMongoLong: {
-    name: 'ToMongoLong',
     description: 'An long integer value',
     type: 'number'
-  }
-}
-
-export const additionalConverters = (): ISchemaConverters => {
-  const toReturn: ISchemaConverters = {};
-  for (const key in AdditionalInputTypes) {
-    toReturn[key] = Omit(AdditionalInputTypes[key], ['name'])
-  }
-  return toReturn;
+  },
+  OneOf: meta => ({
+    description: 'Any one of these two inputs is valid',
+    oneOf: meta.constraints.map(e => e.name)
+  })
 }
 
 
@@ -144,7 +138,7 @@ export function ToMongoId(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     ValidateBy(
       {
-        name: AdditionalInputTypes.ToMongoId.name,
+        name: 'ToMongoId',
         validator: {
           validate: (value: string | ObjectId) => ObjectId.isValid(value),
           defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
@@ -160,7 +154,7 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
   return function (object: Object, propertyName: string) {
     ValidateBy(
       {
-        name: AdditionalInputTypes.ToMongoLong.name,
+        name: 'ToMongoLong',
         validator: {
           validate: (value: number) => !isNaN(value),
           defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
@@ -172,7 +166,42 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
   };
 }
 
+export function OneOf(instanceOf: {new (...args: any[])}[], validationOptions?: ValidationOptions){
+  return function (object: Object, propertyName: string){
+    async function validate(value: any, validationArguments: ValidationArguments): Promise<boolean>{
+      let isValid = false;
+      for (const ins of validationArguments.constraints) {
+        if(isValid) break;
+        const init = plainToInstance(ins, value, {exposeUnsetFields: false});
+        const errors = await cvValidate(init);
+        isValid = !errors.length
+      }
+      return isValid;
+    }
+    return ValidateBy(
+      {
+        name: 'OneOf',
+        constraints: instanceOf,
+        validator: {
+          validate,
+          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
+        }
+      },
+      validationOptions
+    )(object, propertyName);
+  }
+}
+
+export function ValidateInstaneOf(instance: new (...args: any[])=> any, validationOptions?: ValidationOptions){
+  return function (object: Object, propertyName: string){
+    Type(() => instance, {keepDiscriminatorProperty: true})(object, propertyName);
+    return ValidateNested(validationOptions)(object, propertyName);
+  }
+}
+
 export function isObjectEmpty(object: Record<string, any>) {
   if (!object) return false;
   return !Object.keys(object).length;
 }
+
+export const JsonSchema = JSONSchema;

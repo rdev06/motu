@@ -3,8 +3,7 @@ import { Container } from 'typedi';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { App, HttpResponse } from 'uWebSockets.js';
 import { Modules } from './decorators.js';
-import { Ctx, additionalConverters, isObjectEmpty, outputSchema } from './common.js';
-import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters.js';
+import { AdditionalInputTypes, Ctx, isObjectEmpty, outputSchema } from './common.js';
 
 interface IMotuOption {
   apis: Record<string, Record<string, new (...args: any[]) => any>>;
@@ -83,7 +82,7 @@ export default function motu(option: IMotuOption) {
   const PORT = Number(process.env.PORT) || option.port || 3000;
   const CORS_HEADERS = option.CORS_HEADERS || _CORS_HEADERS;
   const headerKeys = ['authorization', 'x-api-key'].concat(option.whiteListHeaderKeys || []);
-  const schemas = validationMetadatasToSchemas({additionalConverters: additionalConverters()});
+  const schemas = validationMetadatasToSchemas({additionalConverters: AdditionalInputTypes});
   const server = App();
 
   if(!option.apiPathPrefix) option.apiPathPrefix = '/api';
