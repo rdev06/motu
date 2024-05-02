@@ -3,7 +3,8 @@ import { Container } from 'typedi';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { App, HttpResponse } from 'uWebSockets.js';
 import { Modules } from './decorators.js';
-import { Ctx, isObjectEmpty, outputSchema } from './common.js';
+import { Ctx, additionalConverters, isObjectEmpty, outputSchema } from './common.js';
+import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters.js';
 
 interface IMotuOption {
   apis: Record<string, Record<string, new (...args: any[]) => any>>;
@@ -82,7 +83,7 @@ export default function motu(option: IMotuOption) {
   const PORT = Number(process.env.PORT) || option.port || 3000;
   const CORS_HEADERS = option.CORS_HEADERS || _CORS_HEADERS;
   const headerKeys = ['authorization', 'x-api-key'].concat(option.whiteListHeaderKeys || []);
-  const schemas = validationMetadatasToSchemas();
+  const schemas = validationMetadatasToSchemas({additionalConverters: additionalConverters()});
   const server = App();
 
   if(!option.apiPathPrefix) option.apiPathPrefix = '/api';
@@ -178,8 +179,8 @@ export default function motu(option: IMotuOption) {
         Entity.ctx = { ...Entity.ctx, ...ctx };
         let toSend = await handler.apply(Entity, body.args || []);
         const status = Entity.ctx.status?.toString() || '200';
-        if (typeof res === 'string') {
-          toSend = { message: res };
+        if (typeof toSend === 'string') {
+          toSend = { message: toSend };
         }
         res.cork(() => {
           set(res, { ...CORS_HEADERS, ...Entity.ctx._headers });

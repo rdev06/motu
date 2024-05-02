@@ -1,6 +1,4 @@
-import { IsOptional } from 'class-validator';
-
-import { getMetadataStorage } from 'class-validator';
+import { getMetadataStorage, IsOptional } from 'class-validator';
 
 export type Type<T = any> = new (...args: any[]) => T;
 

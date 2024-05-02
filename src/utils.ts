@@ -39,6 +39,17 @@ export interface INested {
  * */
 export function calculateNestedProjection(project: Ctx['project'], entityName: string): INested {
   const entitySchema = outputSchema[entityName];
+  if (entitySchema.hidden?.length) {
+    if (isObjectEmpty(project)) {
+      for (const f of entitySchema.hidden) {
+        project[f] = 0;
+      }
+    } else {
+      for (const f of entitySchema.hidden) {
+        delete project[f];
+      }
+    }
+  }
   if (!entitySchema.relation || !['array', 'object'].includes(entitySchema.schema.bsonType)) {
     return { project };
   }

@@ -36,7 +36,7 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
     descriptor.value = async function (...args) {
       for (let i = 0; i < parameterTypes.length; i++) {
         const type = parameterTypes[i];
-        if (typeof type === 'function' && type.prototype !== undefined) {
+        if (typeof type === 'function' && type.prototype !== undefined && typeof args[i] === 'object') {
           const init = plainToInstance(type, args[i] || {}, { exposeUnsetFields: false });
           const errors = await validate(init);
           if (errors.length > 0) {

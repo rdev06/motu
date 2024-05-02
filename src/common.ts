@@ -2,6 +2,31 @@ import { CreateIndexesOptions, IndexSpecification, ObjectId, Long } from 'mongod
 import { ValidateBy, buildMessage, ValidationOptions } from 'class-validator';
 import { Service } from 'typedi';
 import { Transform } from 'class-transformer';
+import Omit from 'lodash.omit';
+import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters';
+
+
+const AdditionalInputTypes = {
+  ToMongoId: {
+    name: 'ToMongoId',
+    description: 'A mongo id',
+    type: 'string'
+  },
+  ToMongoLong: {
+    name: 'ToMongoLong',
+    description: 'An long integer value',
+    type: 'number'
+  }
+}
+
+export const additionalConverters = (): ISchemaConverters => {
+  const toReturn: ISchemaConverters = {};
+  for (const key in AdditionalInputTypes) {
+    toReturn[key] = Omit(AdditionalInputTypes[key], ['name'])
+  }
+  return toReturn;
+}
+
 
 export class HttpException extends Error {
   status: number;
@@ -73,6 +98,7 @@ export type IEntity = {
   version: string;
   relation?: Record<string, any>;
   default?: Record<string, any>;
+  hidden?: string[];
   indexes?: { keys: IndexSpecification; option?: CreateIndexesOptions }[];
   schema: {
     bsonType: IBsonType;
@@ -115,11 +141,10 @@ export function mapEntity(entities: IEntity[]) {
 }
 
 export function ToMongoId(validationOptions?: ValidationOptions) {
-  const name = 'ToMongoId';
   return function (object: Object, propertyName: string) {
     ValidateBy(
       {
-        name,
+        name: AdditionalInputTypes.ToMongoId.name,
         validator: {
           validate: (value: string | ObjectId) => ObjectId.isValid(value),
           defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
@@ -132,11 +157,10 @@ export function ToMongoId(validationOptions?: ValidationOptions) {
 }
 
 export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptions) {
-  const name = 'ToMongoLong';
   return function (object: Object, propertyName: string) {
     ValidateBy(
       {
-        name,
+        name: AdditionalInputTypes.ToMongoLong.name,
         validator: {
           validate: (value: number) => !isNaN(value),
           defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
