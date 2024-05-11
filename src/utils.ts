@@ -96,3 +96,20 @@ export async function processNestedResponse(
     }
   }
 }
+
+export function filterNil(data: object){
+  if(Array.isArray(data)){
+    return data.map(e => filterNil(e))
+  }
+  for (const k in data) {
+    let value = data[k];
+    if(Array.isArray(value)){
+      value = filterNil(value);
+      continue;
+    }
+    if(value === null || value === undefined || value === ''){
+      delete data[k]
+    }
+  }
+  return data;
+}

@@ -1,11 +1,9 @@
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import OmitBy from 'lodash.omitby';
-import isNil from 'lodash.isnil';
 import { Container } from 'typedi';
-import { IEntity } from './common';
+import { GeneralResponse, HttpException, IEntity } from './common';
 import MongoLoader from './MongoLoader';
-import { INested, calculateNestedProjection, processNestedResponse } from './utils';
+import { INested, calculateNestedProjection, filterNil, processNestedResponse } from './utils';
 
 export interface IOption {
   description?: string;
@@ -18,14 +16,13 @@ export const Modules: Record<
   Record<'query' | 'mutation' | 'subscription', Record<string, Pick<IOption, 'description' | 'isArray'> & { input: any[]; type: string }>>
 > = {};
 
-
 function serveType(q: 'query' | 'mutation', option: IOption) {
   return function (target: any, propertyName: string, descriptor: TypedPropertyDescriptor<any>) {
     if (!Modules[target.constructor.name]) Modules[target.constructor.name] = { query: {}, mutation: {}, subscription: {} };
     Modules[target.constructor.name][q][propertyName] = {
       input: [],
       description: option.description,
-      type: option.type.name,
+      type: option.type?.name || GeneralResponse.name,
       isArray: option.isArray || false
     };
     const parameterTypes: any[] = Reflect.getOwnMetadata('design:paramtypes', target, propertyName);
@@ -38,17 +35,21 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
         const type = parameterTypes[i];
         if (typeof type === 'function' && type.prototype !== undefined && typeof args[i] === 'object') {
           const init = plainToInstance(type, args[i] || {}, { exposeUnsetFields: false });
+          const typeOf = typeof init;
+          if (typeOf !== 'object') {
+            throw new HttpException(`You sent an object as an argument at index ${i} but ${type.name} is required. Kindle refer to api docs`, 400, {meta: init});
+          }
           const errors = await validate(init);
           if (errors.length > 0) {
             throw errors;
           }
-          args[i] = OmitBy(init, isNil);
+          args[i] = filterNil(init);
         }
       }
       const nestedProject: INested = calculateNestedProjection(this.ctx.project, option.type.name);
       this.ctx.project = nestedProject.project;
       let toReturn = await method.apply(this, args);
-      if(nestedProject.nested){
+      if (nestedProject.nested) {
         const loader = Container.get(MongoLoader);
         await processNestedResponse(toReturn, nestedProject.nested, option.isArray, loader);
       }

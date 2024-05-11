@@ -5,8 +5,7 @@ import { Transform, Type, plainToInstance } from 'class-transformer';
 import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters';
 import { JSONSchema } from 'class-validator-jsonschema';
 
-
-export const AdditionalInputTypes:ISchemaConverters  = {
+export const AdditionalInputTypes: ISchemaConverters = {
   ToMongoId: {
     description: 'A mongo id',
     type: 'string'
@@ -15,12 +14,11 @@ export const AdditionalInputTypes:ISchemaConverters  = {
     description: 'An long integer value',
     type: 'number'
   },
-  OneOf: meta => ({
+  OneOf: (meta) => ({
     description: 'Any one of these two inputs is valid',
-    oneOf: meta.constraints.map(e => e.name)
+    oneOf: meta.constraints.map((e) => e.name)
   })
-}
-
+};
 
 export class HttpException extends Error {
   status: number;
@@ -42,19 +40,19 @@ export class Ctx {
   headers: Record<string, string>;
   _headers: Record<string, string | string[]>;
   status: number;
-  set(key: string, value: string){
-    this._headers[key] = value
+  set(key: string, value: string) {
+    this._headers[key] = value;
   }
   project: null | Record<string, any>;
   [K: string]: any;
 }
 
-export type useGuardFn = (ctx: Ctx) => boolean | Promise<boolean>;
+export type useGuardFn = (ctx: Ctx, args: any[]) => boolean | Promise<boolean>;
 
 async function handleGuard(fns: useGuardFn[], original: Function, self: object & { ctx: Ctx }, args: any[]) {
   // Needs to be done in series and not parallel
   for (const fn of fns) {
-    const isValid = await fn(self.ctx);
+    const isValid = await fn(self.ctx, args);
     if (!isValid) {
       throw new HttpException('UnAuthorised!', 401);
     }
@@ -146,7 +144,10 @@ export function ToMongoId(validationOptions?: ValidationOptions) {
       },
       validationOptions
     )(object, propertyName);
-    return Transform(({ value }) => ObjectId.createFromHexString(value), { toClassOnly: true })(object, propertyName);
+    return Transform(
+      ({ value }) => (Array.isArray(value) ? value.map((v) => ObjectId.createFromHexString(v)) : ObjectId.createFromHexString(value)),
+      { toClassOnly: true }
+    )(object, propertyName);
   };
 }
 
@@ -162,19 +163,21 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
       },
       validationOptions
     )(object, propertyName);
-    return Transform(({ value }) => Long.fromNumber(value, unsigned), { toClassOnly: true })(object, propertyName);
+    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Long.fromNumber(v, unsigned)) : Long.fromNumber(value, unsigned)), {
+      toClassOnly: true
+    })(object, propertyName);
   };
 }
 
-export function OneOf(instanceOf: {new (...args: any[])}[], validationOptions?: ValidationOptions){
-  return function (object: Object, propertyName: string){
-    async function validate(value: any, validationArguments: ValidationArguments): Promise<boolean>{
+export function OneOf(instanceOf: { new (...args: any[]) }[], validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    async function validate(value: any, validationArguments: ValidationArguments): Promise<boolean> {
       let isValid = false;
       for (const ins of validationArguments.constraints) {
-        if(isValid) break;
-        const init = plainToInstance(ins, value, {exposeUnsetFields: false});
+        if (isValid) break;
+        const init = plainToInstance(ins, value, { exposeUnsetFields: false });
         const errors = await cvValidate(init);
-        isValid = !errors.length
+        isValid = !errors.length;
       }
       return isValid;
     }
@@ -189,14 +192,14 @@ export function OneOf(instanceOf: {new (...args: any[])}[], validationOptions?: 
       },
       validationOptions
     )(object, propertyName);
-  }
+  };
 }
 
-export function ValidateInstaneOf(instance: new (...args: any[])=> any, validationOptions?: ValidationOptions){
-  return function (object: Object, propertyName: string){
-    Type(() => instance, {keepDiscriminatorProperty: true})(object, propertyName);
+export function ValidateInstaneOf(instance: new (...args: any[]) => any, validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    Type(() => instance, { keepDiscriminatorProperty: true })(object, propertyName);
     return ValidateNested(validationOptions)(object, propertyName);
-  }
+  };
 }
 
 export function isObjectEmpty(object: Record<string, any>) {
