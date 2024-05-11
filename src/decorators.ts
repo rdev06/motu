@@ -33,18 +33,23 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
     descriptor.value = async function (...args) {
       for (let i = 0; i < parameterTypes.length; i++) {
         const type = parameterTypes[i];
-        if (typeof type === 'function' && type.prototype !== undefined && typeof args[i] === 'object') {
-          const init = plainToInstance(type, args[i] || {}, { exposeUnsetFields: false });
-          const typeOf = typeof init;
-          if (typeOf !== 'object') {
-            throw new HttpException(`You sent an object as an argument at index ${i} but ${type.name} is required. Kindle refer to api docs`, 400, {meta: init});
-          }
+        if (['String', 'Number', 'Boolean', 'Date', 'Array'].includes(type.name) && !args[i]) {
+          args[i] = type();
+        }
+        const init: any = plainToInstance(type, args[i] || {}, { exposeUnsetFields: false });
+        const typeOf = typeof init;
+        if (typeOf === 'string' && init === '[object Object]') {
+          throw new HttpException(`You sent an object as an argument at index ${i} but ${type.name} is required. Kindle refer to api docs`, 400, {
+            meta: init
+          });
+        }
+        if (typeOf === 'object') {
           const errors = await validate(init);
           if (errors.length > 0) {
             throw errors;
           }
-          args[i] = filterNil(init);
         }
+        args[i] = filterNil(init);
       }
       const nestedProject: INested = calculateNestedProjection(this.ctx.project, option.type.name);
       this.ctx.project = nestedProject.project;

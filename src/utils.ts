@@ -98,6 +98,9 @@ export async function processNestedResponse(
 }
 
 export function filterNil(data: object){
+  if(typeof data !== 'object'){
+    return data;
+  }
   if(Array.isArray(data)){
     return data.map(e => filterNil(e))
   }
