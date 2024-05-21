@@ -46,7 +46,9 @@ function handelError(err: any, CORS_HEADERS: Ctx['_headers'], res: HttpResponse)
     if (!err.meta) {
       err.meta = {};
     }
-    err.meta.stack = err.stack || err.meta;
+    if(err.stack){
+      err.meta.stack = err.stack
+    }
   }
   const error: { message: string; err?: any } = { message: err.message || 'Unknown Error' };
   if (process.env.NODE_ENV != 'prod') {
