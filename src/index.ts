@@ -31,7 +31,8 @@ const _CORS_HEADERS = {
   'Content-Type': 'application/json'
 };
 
-function set(res: HttpResponse, _headers: Ctx['_headers']) {
+function set(res: HttpResponse, _headers: Ctx['_headers'], status='200') {
+  res.writeStatus(status);
   for (const k in _headers) {
     let value: string | string[] = _headers[k];
     if (Array.isArray(value)) {
@@ -55,8 +56,8 @@ function handelError(err: any, CORS_HEADERS: Ctx['_headers'], res: HttpResponse)
     error.err = err;
   }
   res.cork(() => {
-    set(res, CORS_HEADERS);
-    res.writeStatus(err.status?.toString() || '400').end(JSON.stringify(error));
+    set(res, CORS_HEADERS, err.status?.toString() || '400');
+    res.end(JSON.stringify(error));
   });
 }
 
@@ -184,8 +185,8 @@ export default function motu(option: IMotuOption) {
           toSend = { message: toSend };
         }
         res.cork(() => {
-          set(res, { ...CORS_HEADERS, ...Entity.ctx._headers });
-          res.writeStatus(status).end(JSON.stringify(toSend));
+          set(res, { ...CORS_HEADERS, ...Entity.ctx._headers }, status);
+          res.end(JSON.stringify(toSend));
         });
       } catch (err) {
         handelError(err, CORS_HEADERS, res);
