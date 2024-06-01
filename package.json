@@ -15,7 +15,6 @@
   "scripts": {
     "dev": "node --watch --no-warnings --loader ts-node/esm src/index.ts",
     "build": "node build && tsc",
-    "postbuild": "cp -rf dist ../solocit-bk/node_modules/@rdev06/motu",
     "postinstall": "npm run build",
     "test": "node test"
   },
