@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "node --watch --no-warnings --loader ts-node/esm src/index.ts",
-    "build": "rm -rf dist && tsc",
+    "build": "node build && tsc",
     "postinstall": "npm run build",
     "test": "node test"
   },
