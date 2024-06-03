@@ -1,5 +1,13 @@
 import { CreateIndexesOptions, IndexSpecification, ObjectId, Long } from 'mongodb';
-import { ValidateBy, buildMessage, ValidationOptions, validate as cvValidate, ValidationArguments, ValidateNested } from 'class-validator';
+import {
+  ValidateBy,
+  buildMessage,
+  ValidationOptions,
+  validate as cvValidate,
+  ValidationArguments,
+  ValidateNested,
+  isDateString
+} from 'class-validator';
 import { Service } from 'typedi';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters';
@@ -166,6 +174,25 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
     return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Long.fromNumber(v, unsigned)) : Long.fromNumber(value, unsigned)), {
       toClassOnly: true
     })(object, propertyName);
+  };
+}
+
+export function ToDate(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    ValidateBy(
+      {
+        name: 'ToDate',
+        validator: {
+          validate: (value: string) => !isDateString(value),
+          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a date string', validationOptions)
+        }
+      },
+      validationOptions
+    )(object, propertyName);
+    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => new Date(v)) : new Date(value)), { toClassOnly: true })(
+      object,
+      propertyName
+    );
   };
 }
 
