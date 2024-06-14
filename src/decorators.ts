@@ -36,11 +36,14 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
         if (!args[i]) {
           if (['String', 'Number', 'Boolean', 'Date', 'Array'].includes(type.name)) {
             args[i] = type();
-          } else {
+          } else if (type.name === 'ID'){
+            //@ts-ignore
+            args[i] = ID()
+          }else {
             args[i] = {};
           }
         }
-        const init: any = plainToInstance(type, args[i], { exposeUnsetFields: false });
+        const init = type.name === 'ObjectId' ? new type(args[i]) : plainToInstance(type, args[i], { exposeUnsetFields: false });
         const typeOf = typeof init;
         if (typeOf === 'string' && init === '[object Object]') {
           throw new HttpException(`You sent an object as an argument at index ${i} but ${type.name} is required. Kindle refer to api docs`, 400, {
