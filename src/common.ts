@@ -1,4 +1,4 @@
-import { CreateIndexesOptions, IndexSpecification, ObjectId, Long } from 'mongodb';
+import { CreateIndexesOptions, IndexSpecification, ObjectId, Long, Double } from 'mongodb';
 import {
   ValidateBy,
   buildMessage,
@@ -172,6 +172,23 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
       validationOptions
     )(object, propertyName);
     return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Long.fromNumber(v, unsigned)) : Long.fromNumber(value, unsigned)), {
+      toClassOnly: true
+    })(object, propertyName);
+  };
+}
+export function ToMongoDouble(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    ValidateBy(
+      {
+        name: 'ToMongoDouble',
+        validator: {
+          validate: (value: number) => !isNaN(value),
+          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
+        }
+      },
+      validationOptions
+    )(object, propertyName);
+    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => new Double(v)) : new Double(value)), {
       toClassOnly: true
     })(object, propertyName);
   };
