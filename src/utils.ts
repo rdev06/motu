@@ -121,3 +121,9 @@ export function filterNil(data: object){
   }
   return data;
 }
+
+export function extractArgsNameFromFn(fn: Function): string[]{
+  const fnStr = fn.toString();
+  const args = fnStr.slice(fnStr.indexOf('(') + 1, fnStr.indexOf(')'));
+  return args.split(',').map(e => e.trim())
+}

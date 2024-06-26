@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { Container } from 'typedi';
 import { GeneralResponse, HttpException, IEntity } from './common';
 import MongoLoader from './MongoLoader';
-import { INested, calculateNestedProjection, filterNil, processNestedResponse } from './utils';
+import { INested, calculateNestedProjection, extractArgsNameFromFn, filterNil, processNestedResponse } from './utils';
 
 export interface IOption {
   description?: string;
@@ -25,9 +25,10 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
       type: option.type?.name || GeneralResponse.name,
       isArray: option.isArray || false
     };
+    const args = extractArgsNameFromFn(target[propertyName]);
     const parameterTypes: any[] = Reflect.getOwnMetadata('design:paramtypes', target, propertyName);
-    for (const type of parameterTypes) {
-      Modules[target.constructor.name][q][propertyName].input.push(type.name);
+    for (let i = 0; i < parameterTypes.length; i++) {
+      Modules[target.constructor.name][q][propertyName].input.push({name: args[i], type: parameterTypes[i].name});
     }
     const method = descriptor.value!;
     descriptor.value = async function (...args) {
