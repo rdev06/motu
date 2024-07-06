@@ -145,10 +145,11 @@ export function ToMongoId(validationOptions?: ValidationOptions) {
     ValidateBy(
       {
         name: 'ToMongoId',
-        validator: {
-          validate: (value: string | ObjectId) => ObjectId.isValid(value),
-          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
-        }
+        validator: () => true
+        // validator: {
+        //   validate: (value: string | ObjectId) => ObjectId.isValid(value),
+        //   defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
+        // }
       },
       validationOptions
     )(object, propertyName);
@@ -164,10 +165,11 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
     ValidateBy(
       {
         name: 'ToMongoLong',
-        validator: {
-          validate: (value: number) => !isNaN(value),
-          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
-        }
+        validator: () => true
+        // validator: {
+        //   validate: (value: number) => !isNaN(value),
+        //   defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
+        // }
       },
       validationOptions
     )(object, propertyName);
@@ -181,10 +183,11 @@ export function ToMongoDouble(validationOptions?: ValidationOptions) {
     ValidateBy(
       {
         name: 'ToMongoDouble',
-        validator: {
-          validate: (value: number) => !isNaN(value),
-          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
-        }
+        validator: () => true
+        // validator: {
+        //   validate: (value: number) => !isNaN(value),
+        //   defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
+        // }
       },
       validationOptions
     )(object, propertyName);
@@ -199,10 +202,11 @@ export function ToDate(validationOptions?: ValidationOptions) {
     ValidateBy(
       {
         name: 'ToDate',
-        validator: {
-          validate: (value: string) => !isDateString(value),
-          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a date string', validationOptions)
-        }
+        validator: () => true
+        // validator: {
+        //   validate: (value: string) => !isDateString(value),
+        //   defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a date string', validationOptions)
+        // }
       },
       validationOptions
     )(object, propertyName);
@@ -231,7 +235,7 @@ export function OneOf(instanceOf: { new (...args: any[]) }[], validationOptions?
         constraints: instanceOf,
         validator: {
           validate,
-          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
+          defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a one of accepted options', validationOptions)
         }
       },
       validationOptions
