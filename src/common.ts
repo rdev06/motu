@@ -6,7 +6,6 @@ import {
   validate as cvValidate,
   ValidationArguments,
   ValidateNested,
-  isDateString
 } from 'class-validator';
 import { Service } from 'typedi';
 import { Transform, Type, plainToInstance } from 'class-transformer';
