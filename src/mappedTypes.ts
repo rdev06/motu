@@ -65,7 +65,7 @@ export function IntersectionType<A, B>(classARef: Type<A>, classBRef: Type<B>): 
   inheritMetaValidators(classBRef, IntersectionTypeClass, toInherit);
   return IntersectionTypeClass as Type<A & B>;
 }
-export function createClass<T>(entity: IEntity): Type<Filter<T>> {
+export function filterQueryClass<T>(entity: IEntity): Type<Filter<T>> {
   abstract class FindQueryClass {}
   const keys = new Set(['_id', ...Object.keys(entity.schema.properties)]);
   for (const k of keys) {
