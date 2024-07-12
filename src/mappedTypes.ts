@@ -72,7 +72,7 @@ export function filterQueryClass<T>(entity: IEntity): Type<Filter<T>> {
     Object.defineProperty(FindQueryClass.prototype, k, {writable: true})
     const thisField = entity.schema.properties[k];
     if(thisField.bsonType === 'objectId' || (thisField.bsonType === 'array' && thisField.items.bsonType === 'objectId')){
-      ToMongoId()(FindQueryClass.prototype, k);
+      ToMongoId({each: thisField.bsonType === 'array'})(FindQueryClass.prototype, k);
     }
   }
   return FindQueryClass as Type<Filter<T>>;
