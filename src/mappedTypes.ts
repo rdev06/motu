@@ -74,7 +74,7 @@ export function filterQueryClass<T>(entity: IEntity): Type<Filter<T>> {
     if(thisField.bsonType === 'objectId' || (thisField.bsonType === 'array' && thisField.items.bsonType === 'objectId')){
       ToMongoId({each: thisField.bsonType === 'array'})(FindQueryClass.prototype, k);
     }
-    if(thisField.bsonType === 'date' || (thisField.bsonType === 'array' && thisField.items.bsonType === 'objectId')){
+    if(thisField.bsonType === 'date' || (thisField.bsonType === 'array' && thisField.items.bsonType === 'date')){
       ToDate({each: thisField.bsonType === 'array'})(FindQueryClass.prototype, k);
     }
   }
