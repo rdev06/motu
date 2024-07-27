@@ -1,16 +1,10 @@
-import { CreateIndexesOptions, IndexSpecification, ObjectId, Long, Double } from 'mongodb';
-import {
-  ValidateBy,
-  buildMessage,
-  ValidationOptions,
-  validate as cvValidate,
-  ValidationArguments,
-  ValidateNested,
-} from 'class-validator';
+import { CreateIndexesOptions, IndexSpecification } from 'mongodb';
+import { ValidateBy, buildMessage, ValidationOptions, validate as cvValidate, ValidationArguments, ValidateNested } from 'class-validator';
 import { Service } from 'typedi';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import { ISchemaConverters } from 'class-validator-jsonschema/build/defaultConverters';
 import { JSONSchema } from 'class-validator-jsonschema';
+import { castDate, castDouble, castLong, castObjectId } from './cast';
 
 export const AdditionalInputTypes: ISchemaConverters = {
   ToMongoId: {
@@ -155,16 +149,11 @@ export function ToMongoId(validationOptions?: ValidationOptions) {
         name: 'ToMongoId',
         validator: {
           validate: () => true
-          // validate: (value: string | ObjectId) => ObjectId.isValid(value),
-          // defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a mongodb id', validationOptions)
         }
       },
       validationOptions
     )(object, propertyName);
-    return Transform(
-      ({ value }) => (Array.isArray(value) ? value.map((v) => ObjectId.createFromHexString(v)) : ObjectId.createFromHexString(value)),
-      { toClassOnly: true }
-    )(object, propertyName);
+    return Transform(({ value }) => castObjectId(value), { toClassOnly: true })(object, propertyName);
   };
 }
 
@@ -175,15 +164,11 @@ export function ToMongoLong(unsigned = true, validationOptions?: ValidationOptio
         name: 'ToMongoLong',
         validator: {
           validate: () => true
-          // validate: (value: number) => !isNaN(value),
-          // defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
         }
       },
       validationOptions
     )(object, propertyName);
-    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Long.fromNumber(v, unsigned)) : Long.fromNumber(value, unsigned)), {
-      toClassOnly: true
-    })(object, propertyName);
+    return Transform(({ value }) => castLong(value, unsigned), { toClassOnly: true })(object, propertyName);
   };
 }
 export function ToMongoDouble(validationOptions?: ValidationOptions) {
@@ -193,15 +178,11 @@ export function ToMongoDouble(validationOptions?: ValidationOptions) {
         name: 'ToMongoDouble',
         validator: {
           validate: () => true
-          // validate: (value: number) => !isNaN(value),
-          // defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a number', validationOptions)
         }
       },
       validationOptions
     )(object, propertyName);
-    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => new Double(v)) : new Double(value)), {
-      toClassOnly: true
-    })(object, propertyName);
+    return Transform(({ value }) => castDouble(value), { toClassOnly: true })(object, propertyName);
   };
 }
 
@@ -212,16 +193,11 @@ export function ToDate(validationOptions?: ValidationOptions) {
         name: 'ToDate',
         validator: {
           validate: () => true
-          // validate: (value: string) => !isDateString(value),
-          // defaultMessage: buildMessage((eachPrefix) => eachPrefix + '$property must be a date string', validationOptions)
         }
       },
       validationOptions
     )(object, propertyName);
-    return Transform(({ value }) => (Array.isArray(value) ? value.map((v) => new Date(v)) : new Date(value)), { toClassOnly: true })(
-      object,
-      propertyName
-    );
+    return Transform(({ value }) => castDate(value), { toClassOnly: true })(object, propertyName);
   };
 }
 
