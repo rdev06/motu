@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import MongoLoader, { IProject } from './MongoLoader';
 import { Ctx, isObjectEmpty, outputSchema } from './common';
 
@@ -83,12 +84,14 @@ export async function processNestedResponse(
 ) {
   if (isArray) {
     isArray = false;
-    await Promise.all(data.map((d: Record<string, any>) => processNestedResponse(d, nested, false, loader)));
+    return Promise.all(data.map((d: Record<string, any>) => processNestedResponse(d, nested, false, loader)));
   }
   for (const K in nested) {
     if (data[K]) {
       const newNestedProject = calculateNestedProjection(nested[K].projection as Record<string, any>, nested[K].relation);
-      const nestedData = await loader.load(data[K], nested[K].relation, K, newNestedProject.project);
+      const nestedData = Array.isArray(data[K])
+        ? await Promise.all(data[K].map((nK: string | ObjectId) => loader.load(nK, nested[K].relation, K, newNestedProject.project)))
+        : await loader.load(data[K], nested[K].relation, K, newNestedProject.project);
       data[K] = nestedData;
       if (newNestedProject.nested) {
         return processNestedResponse(nestedData, newNestedProject.nested, Array.isArray(nestedData), loader);
@@ -97,33 +100,33 @@ export async function processNestedResponse(
   }
 }
 
-export function filterNil(data: object){
-  if(typeof data !== 'object'){
+export function filterNil(data: object) {
+  if (typeof data !== 'object') {
     return data;
   }
-  if(Array.isArray(data)){
-    return data.map(e => filterNil(e))
+  if (Array.isArray(data)) {
+    return data.map((e) => filterNil(e));
   }
   for (const k in data) {
     let value = data[k];
-    if(typeof value === 'object'){
-      if(Array.isArray(value)){
+    if (typeof value === 'object') {
+      if (Array.isArray(value)) {
         value = filterNil(value);
         continue;
-      }else{
-        value = filterNil(value)
+      } else {
+        value = filterNil(value);
       }
     }
-    if(value === null || value === undefined || value === ''){
-      delete data[k]
+    if (value === null || value === undefined || value === '') {
+      delete data[k];
       continue;
     }
   }
   return data;
 }
 
-export function extractArgsNameFromFn(fn: Function): string[]{
+export function extractArgsNameFromFn(fn: Function): string[] {
   const fnStr = fn.toString();
   const args = fnStr.slice(fnStr.indexOf('(') + 1, fnStr.indexOf(')'));
-  return args.split(',').map(e => e.trim())
+  return args.split(',').map((e) => e.trim());
 }

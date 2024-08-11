@@ -25,7 +25,7 @@ export default class MongoLoader {
   init = false;
   colFlnProjectKeyPromiseMap: Record<
     string,
-    Record<string, { project: IProject; keys: Record<string, { resolve: PromiseResolveFunction; reject: PromiseRejectFunction }> }>
+    Record<string, { project: IProject; keys: Record<string, { resolve: PromiseResolveFunction; reject: PromiseRejectFunction }[]> }>
   > = {};
   load(key: string | ObjectId, col: string, fln: string, project: IProject = {}) {
     key = key.toString();
@@ -41,7 +41,10 @@ export default class MongoLoader {
         // }
         self.colFlnProjectKeyPromiseMap[col][fln] = { project, keys: {} };
       }
-      self.colFlnProjectKeyPromiseMap[col][fln].keys[key] = { resolve, reject };
+      if(!self.colFlnProjectKeyPromiseMap[col][fln].keys[key]){
+        self.colFlnProjectKeyPromiseMap[col][fln].keys[key] = [];
+      }
+      self.colFlnProjectKeyPromiseMap[col][fln].keys[key].push({ resolve, reject });
     });
     if (this.init) {
       return promise;
@@ -75,7 +78,7 @@ export default class MongoLoader {
       for (const d of DATA) {
         const id = d._id.toHexString();
         if (!projectHaveId) delete d._id;
-        target[id].resolve(d);
+        target[id].map(e => e.resolve(d));
         delete target[id];
       }
     }
@@ -83,8 +86,8 @@ export default class MongoLoader {
 
     //***** If race happens then look in this section *****//
     for (const K in target) {
-      if (isError) target[K].reject(err);
-      else target[K].resolve(null);
+      if (isError) target[K].map(e => e.reject(err));
+      else target[K].map(e => e.resolve(null));
     }
 
     // since we clear all the fields inside that field do lets clear it
