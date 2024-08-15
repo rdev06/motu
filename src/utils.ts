@@ -27,7 +27,7 @@ export interface INested {
   project: Record<string, string | number | boolean>;
   nested?: {
     [k: string]: {
-      relation: string;
+      relation: string | Record<string, string>;
       projection: string | number | boolean | Record<string, any>;
     };
   };
@@ -65,7 +65,14 @@ export function calculateNestedProjection(project: Ctx['project'], entityName: s
           projection: project[K]
         };
         project[K] = 1;
-      } else {
+      } else if(K.includes('.')) {
+        const splitted = K.split('.');
+        nested[splitted[0]] = {
+          relation: entitySchema.relation[splitted[0]],
+          projection: {[splitted.at(-1)]: project[K]}
+        }
+        project[K] = 1;
+      }else {
         const toMap = flatObjectKeys(project[K]);
         delete project[K];
         Object.assign(project, toMap);
@@ -88,13 +95,21 @@ export async function processNestedResponse(
   }
   for (const K in nested) {
     if (data[K]) {
-      const newNestedProject = calculateNestedProjection(nested[K].projection as Record<string, any>, nested[K].relation);
-      const nestedData = Array.isArray(data[K])
-        ? await Promise.all(data[K].map((nK: string | ObjectId) => loader.load(nK, nested[K].relation, K, newNestedProject.project)))
-        : await loader.load(data[K], nested[K].relation, K, newNestedProject.project);
-      data[K] = nestedData;
-      if (newNestedProject.nested) {
-        return processNestedResponse(nestedData, newNestedProject.nested, Array.isArray(nestedData), loader);
+      if (typeof nested[K].relation !== 'string') {
+        const newNested: INested['nested'] = {};
+        for (const R in nested[K].relation as Record<string, string>) {
+          newNested[R] = { projection: nested[K].projection[R], relation: nested[K].relation[R] };
+        }
+        await processNestedResponse(data[K], newNested, Array.isArray(data[K]), loader);
+      } else {
+        const newNestedProject = calculateNestedProjection(nested[K].projection as Record<string, any>, nested[K].relation as string);
+        const nestedData = Array.isArray(data[K])
+          ? await Promise.all(data[K].map((nK: string | ObjectId) => loader.load(nK, nested[K].relation as string, K, newNestedProject.project)))
+          : await loader.load(data[K], nested[K].relation as string, K, newNestedProject.project);
+        data[K] = nestedData;
+        if (newNestedProject.nested) {
+          return processNestedResponse(nestedData, newNestedProject.nested, Array.isArray(nestedData), loader);
+        }
       }
     }
   }
