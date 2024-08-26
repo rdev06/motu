@@ -31,7 +31,7 @@ const _CORS_HEADERS = {
   'Content-Type': 'application/json'
 };
 
-function set(res: HttpResponse, _headers: Ctx['_headers'], status='200') {
+function set(res: HttpResponse, _headers: Ctx['_headers'], status = '200') {
   res.writeStatus(status);
   for (const k in _headers) {
     let value: string | string[] = _headers[k];
@@ -47,18 +47,20 @@ function handelError(err: any, CORS_HEADERS: Ctx['_headers'], res: HttpResponse)
     if (!err.meta) {
       err.meta = {};
     }
-    if(err.stack){
-      err.meta.stack = err.stack
+    if (err.stack) {
+      err.meta.stack = err.stack;
     }
   }
   const error: { message: string; err?: any } = { message: err.message || 'Unknown Error' };
   if (process.env.NODE_ENV != 'prod') {
     error.err = err;
   }
-  res.cork(() => {
-    set(res, CORS_HEADERS, err.status?.toString() || '400');
-    res.end(JSON.stringify(error));
-  });
+  if (!res.aborted) {
+    res.cork(() => {
+      set(res, CORS_HEADERS, err.status?.toString() || '400');
+      res.end(JSON.stringify(error));
+    });
+  }
 }
 
 export function readJson(res: HttpResponse): Promise<any> {
@@ -76,7 +78,10 @@ export function readJson(res: HttpResponse): Promise<any> {
         }
       }
     });
-    res.onAborted(() => 'Invalid JSON or no data at all!');
+    res.onAborted(() => {
+      res.aborted = true;
+      return 'Invalid JSON or no data at all!';
+    });
   });
 }
 
@@ -85,11 +90,11 @@ export default function motu(option: IMotuOption) {
   const PORT = Number(process.env.PORT) || option.port || 3000;
   const CORS_HEADERS = option.CORS_HEADERS || _CORS_HEADERS;
   const headerKeys = ['authorization', 'x-api-key'].concat(option.whiteListHeaderKeys || []);
-  const schemas = validationMetadatasToSchemas({additionalConverters: AdditionalInputTypes});
+  const schemas = validationMetadatasToSchemas({ additionalConverters: AdditionalInputTypes });
   const server = App();
 
-  if(!option.apiPathPrefix) option.apiPathPrefix = '/api';
-  if(option.apiPathPrefix === '/') throw `You can not set 'apiPathPrefix' as '/' as this is reserved for internal usage`;
+  if (!option.apiPathPrefix) option.apiPathPrefix = '/api';
+  if (option.apiPathPrefix === '/') throw `You can not set 'apiPathPrefix' as '/' as this is reserved for internal usage`;
 
   server.options('/*', (res) => {
     set(res, CORS_HEADERS);
@@ -130,13 +135,15 @@ export default function motu(option: IMotuOption) {
           let toSend = await option.redirects[k](ctx, req.getParameter);
           if (typeof toSend === 'string') {
             toSend = { message: toSend };
-          }else if(typeof toSend === 'object'){
-            toSend = JSON.stringify(toSend)
+          } else if (typeof toSend === 'object') {
+            toSend = JSON.stringify(toSend);
           }
-          res.cork(() => {
-            set(res, { ...CORS_HEADERS, ...ctx._headers });
-            res.writeStatus(ctx.status.toString() || '200').end(toSend);
-          });
+          if (!res.aborted) {
+            res.cork(() => {
+              set(res, { ...CORS_HEADERS, ...ctx._headers });
+              res.writeStatus(ctx.status.toString() || '200').end(toSend);
+            });
+          }
         } catch (err) {
           handelError(err, CORS_HEADERS, res);
         }
@@ -147,7 +154,7 @@ export default function motu(option: IMotuOption) {
   for (const K in option.apis) {
     const Module = option.apis[K];
     let path = option.apiPathPrefix + K;
-    if(path.endsWith('/')) path = path.slice(0, -1);
+    if (path.endsWith('/')) path = path.slice(0, -1);
 
     server.get(path, (res) => {
       set(res, CORS_HEADERS);
@@ -184,10 +191,12 @@ export default function motu(option: IMotuOption) {
         if (typeof toSend === 'string') {
           toSend = { message: toSend };
         }
-        res.cork(() => {
-          set(res, { ...CORS_HEADERS, ...Entity.ctx._headers }, status);
-          res.end(JSON.stringify(toSend));
-        });
+        if (!res.aborted) {
+          res.cork(() => {
+            set(res, { ...CORS_HEADERS, ...Entity.ctx._headers }, status);
+            res.end(JSON.stringify(toSend));
+          });
+        }
       } catch (err) {
         handelError(err, CORS_HEADERS, res);
       }
