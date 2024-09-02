@@ -1,6 +1,5 @@
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { Container } from 'typedi';
 import { GeneralResponse, HttpException, IEntity } from './common';
 import MongoLoader from './MongoLoader';
 import { INested, calculateNestedProjection, extractArgsNameFromFn, filterNil, processNestedResponse } from './utils';
@@ -63,7 +62,7 @@ function serveType(q: 'query' | 'mutation', option: IOption) {
       this.ctx.project = nestedProject.project;
       let toReturn = await method.apply(this, args);
       if (nestedProject.nested) {
-        const loader = Container.get(MongoLoader);
+        const loader = new MongoLoader();
         await processNestedResponse(toReturn, nestedProject.nested, option.isArray, loader);
       }
       return toReturn;
