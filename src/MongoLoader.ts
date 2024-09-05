@@ -1,5 +1,5 @@
 import { Collection, ObjectId } from 'mongodb';
-import { Container, Service } from 'typedi';
+import { Container } from 'typedi';
 import { isObjectEmpty } from './common';
 
 /*
@@ -20,7 +20,6 @@ export type IProject = Record<string, string | number | boolean>;
 type PromiseResolveFunction = (value?: any | PromiseLike<any>) => void;
 type PromiseRejectFunction = (reason?: any) => void;
 
-@Service()
 export default class MongoLoader {
   init = false;
   colFlnProjectKeyPromiseMap: Record<
