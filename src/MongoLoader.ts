@@ -56,7 +56,7 @@ export default class MongoLoader {
           const flObj = self.colFlnProjectKeyPromiseMap[cn][fl];
           const projectHaveId = !!flObj.project._id;
           if (!isObjectEmpty(flObj.project) && !projectHaveId) flObj.project._id = 1;
-          const dbCol: Collection = Container.get(cn);
+          const dbCol: Collection = Container.get('MongoLoader: '+cn);
           dbCol
             .find({ _id: { $in: Object.keys(flObj.keys).map((k) => ObjectId.createFromHexString(k)) } }, { projection: flObj.project })
             .toArray()

@@ -1,5 +1,5 @@
 import { MongoClient, ServerApiVersion, Db, Collection, type Document } from 'mongodb';
-import { Container } from 'typedi';
+import { Container, Inject } from 'typedi';
 import { mapEntity, type IEntity } from './common';
 import semver from 'semver';
 
@@ -57,7 +57,7 @@ export async function connect(uri = process.env.MONGO_URI || 'mongodb://localhos
   return client;
 }
 
-async function createIndex(collName: string, indexes?: IEntity['indexes']) {
+async function createIndexes(collName: string, indexes?: IEntity['indexes']) {
   if (indexes?.length) {
     for (const index of indexes) {
       await collMap[collName].createIndex(index.keys, index.option);
@@ -75,8 +75,8 @@ export async function Model<T extends Document = Document>(
   if (!collMap[name]) {
     try {
       collMap[name] = await db.createCollection(name, { validator });
-      await createIndex(name, indexes);
-      Container.set(name, collMap[name]);
+      await createIndexes(name, indexes);
+      Container.set('Model: '+name, collMap[name]);
     } catch (error) {
       console.error(`Error for collection 'Unit':`, error);
       process.exit(1);
@@ -86,7 +86,7 @@ export async function Model<T extends Document = Document>(
   if (semver.lt(lastVersion?.version || '0.0.0', currentVersion)) {
     await db.command({ collMod: name, validator });
     await collMap[name].dropIndexes();
-    await createIndex(name, indexes);
+    await createIndexes(name, indexes);
     await collMap[ColVersion].updateOne({ name }, { $set: { version: currentVersion, lastModifiedAt: new Date() } }, { upsert: true });
   }
   return collMap[name] as unknown as Collection<T>;
@@ -98,4 +98,8 @@ export function registerModels(models: { entity: IEntity; validator: object }[])
     mapEntity([e.entity]);
     Model(name, e.validator, e.entity.version, e.entity.indexes);
   });
+}
+
+export function UseModel(modelName:string){
+  return Inject('Model: '+modelName)
 }
